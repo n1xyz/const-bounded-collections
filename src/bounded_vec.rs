@@ -1,8 +1,9 @@
+use alloc::vec;
+use alloc::vec::Vec;
+use core::convert::{TryFrom, TryInto};
+use core::slice::{Iter, IterMut};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use std::convert::{TryFrom, TryInto};
-use std::slice::{Iter, IterMut};
-use std::vec;
 use thiserror::Error;
 
 /// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity
@@ -386,7 +387,7 @@ impl<'a, T, const L: usize, const U: usize> IntoIterator for &'a BoundedVec<T, L
     type IntoIter = core::slice::Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.inner).iter()
+        self.inner.iter()
     }
 }
 
@@ -395,7 +396,7 @@ impl<'a, T, const L: usize, const U: usize> IntoIterator for &'a mut BoundedVec<
     type IntoIter = core::slice::IterMut<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&mut self.inner).iter_mut()
+        self.inner.iter_mut()
     }
 }
 
@@ -463,7 +464,7 @@ mod arbitrary {
 #[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     use super::*;
 
@@ -597,6 +598,7 @@ mod tests {
 mod arb_tests {
 
     use super::*;
+    use alloc::format;
     use proptest::prelude::*;
 
     proptest! {
