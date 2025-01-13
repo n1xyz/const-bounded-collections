@@ -8,7 +8,7 @@ use thiserror::Error;
 ///
 /// # Type Parameters
 ///
-/// * `W` - witness type to prove vector ranges and shape if interface accordingly
+/// * `W` - witness type to prove vector ranges and shape it interface accordingly
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
 pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty<L, U>> {
     inner: Vec<T>,
@@ -38,8 +38,11 @@ pub enum BoundedVecOutOfBounds {
 
 /// Module for type witnesses used to prove vector bounds at compile time
 pub mod witnesses {
-
-    // NOTE: we can have proves if needed for some cases like 8/16/32/64 upper bound, so can make memory and serde more compile safe and efficient
+    // NOTE:
+    // we can have proves if needed for some cases like 8/16/32/64 upper bound and operating range,
+    // and make memory layout more efficient:
+    // - decide stackalloc or smallvec or std::vec, depending on range * size_of at compile time
+    // - make some values of vec to be not usize, but other numbers
 
     /// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,13 +62,30 @@ pub mod witnesses {
                 panic!("L must be less than or equal to U")
             }
 
+            serde::<U>();
             NonEmpty::<L, U>(())
+        }
+    }
+
+    const fn serde<const U: usize>() {
+        #[cfg(feature = "schema")]
+        if U as u128 > u32::MAX as u128 {
+            // there is not const safe way to cast usize to u32, nor to other bigger number
+            panic!("`schemars` encodes `maxLength` as u32, so `U` must be less than or equal to `u32::MAX`")
+        }
+
+        #[cfg(feature = "borsh")]
+        if U as u128 > u32::MAX as u128 {
+            panic!("`borsh` specifies size of dynamic containers as u32, so `U` must be less than or equal to `u32::MAX`")
         }
     }
 
     /// Type a compile-time proof for possibly empty vector with upper bound
     pub const fn empty<const U: usize>() -> Empty<U> {
-        const { Empty::<U>(()) }
+        const {
+            serde::<U>();
+            Empty::<U>(())
+        }
     }
 }
 
@@ -88,7 +108,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        let _witness = witnesses::empty::<U>();
+        let _ = witnesses::empty::<U>();
         let len = items.len();
         if len > U {
             Err(BoundedVecOutOfBounds::UpperBoundError {
@@ -238,7 +258,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        let _witness = witnesses::non_empty::<L, U>();
+        let _ = witnesses::non_empty::<L, U>();
         let len = items.len();
         if len < L {
             Err(BoundedVecOutOfBounds::LowerBoundError {
@@ -578,6 +598,184 @@ impl<T, const L: usize, const U: usize> OptBoundedVecToVec<T>
     }
 }
 
+/// Suports encoding and decoding with [borsh](https://crates.io/crates/borsh), and BorshSchema.
+///
+/// By default Borsh uses u32 as length prefix for sequences.
+/// For bounded we used u8, u16 or u32 depending on the U.
+/// Increase or decreaasing U may not always be backward compatible.
+#[cfg(feature = "borsh")]
+mod borsh_impl {
+    use super::*;
+    use alloc::collections::btree_map::{BTreeMap, Entry};
+    use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+
+    impl<T: BorshSerialize, const L: usize, const U: usize, W> BorshSerialize
+        for BoundedVec<T, L, U, W>
+    {
+        fn serialize<Writer: borsh::io::Write>(
+            &self,
+            writer: &mut Writer,
+        ) -> borsh::io::Result<()> {
+            let len = self.inner.len();
+            if U <= usize::from(u8::MAX) {
+                #[expect(clippy::expect_used)]
+                let len: u8 = len.try_into().expect("proved by design");
+                len.serialize(writer)?;
+            } else if U <= usize::from(u16::MAX) {
+                #[expect(clippy::expect_used)]
+                let len: u16 = len.try_into().expect("proved by design");
+                len.serialize(writer)?;
+            } else {
+                #[expect(clippy::expect_used)]
+                let len: u32 = len.try_into().expect("proved by design");
+                len.serialize(writer)?;
+            };
+
+            // adapted from internals of borsh-rs
+            let data = self.as_slice();
+            if let Some(u8_slice) = T::u8_slice(data) {
+                writer.write_all(u8_slice)?;
+            } else {
+                for item in data {
+                    item.serialize(writer)?;
+                }
+            }
+            Ok(())
+        }
+    }
+
+    impl<T: BorshDeserialize, const L: usize, const U: usize, W> BorshDeserialize
+        for BoundedVec<T, L, U, W>
+    {
+        fn deserialize_reader<R: borsh::io::Read>(reader: &mut R) -> borsh::io::Result<Self> {
+            let len = if U <= usize::from(u8::MAX) {
+                usize::from(u8::deserialize_reader(reader)?)
+            } else if U <= usize::from(u16::MAX) {
+                usize::from(u16::deserialize_reader(reader)?)
+            } else {
+                let len = u32::deserialize_reader(reader)?;
+                usize::try_from(len).map_err(|_| {
+                    borsh::io::Error::new(
+                        borsh::io::ErrorKind::Other,
+                        alloc::format!("Length overflow: got {}", len),
+                    )
+                })?
+            };
+            if len < L {
+                return Err(borsh::io::Error::new(
+                    borsh::io::ErrorKind::Other,
+                    alloc::format!("Lower bound violation: got {} (expected >= {})", len, L),
+                ));
+            } else if len > U {
+                return Err(borsh::io::Error::new(
+                    borsh::io::ErrorKind::Other,
+                    alloc::format!("Upper bound violation: got {} (expected <= {})", len, U),
+                ));
+            }
+            // adapted from internals for borsh-rs
+            let data = if len == 0 {
+                Vec::new()
+            } else if let Some(vec_bytes) = T::vec_from_reader(len as u32, reader)? {
+                vec_bytes
+            } else {
+                let el_size = core::mem::size_of::<T>() as u32;
+                let cautious =
+                    core::cmp::max(core::cmp::min(len as u32, 4096 / el_size), 1) as usize;
+
+                // TODO(16): return capacity allocation when we can safely do that.
+                let mut result = Vec::with_capacity(cautious);
+                for _ in 0..len {
+                    result.push(T::deserialize_reader(reader)?);
+                }
+                result
+            };
+
+            Ok(Self {
+                inner: data,
+                _marker: core::marker::PhantomData,
+            })
+        }
+    }
+
+    impl<T: BorshSchema, const L: usize, const U: usize> BorshSchema for BoundedVec<T, L, U> {
+        fn add_definitions_recursively(
+            definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,
+        ) {
+            let len_width = if U <= usize::from(u8::MAX) {
+                1
+            } else if U <= usize::from(u16::MAX) {
+                2
+            } else {
+                4 // proven by design
+            };
+
+            let definition = borsh::schema::Definition::Sequence {
+                length_width: len_width,
+                #[expect(clippy::expect_used)]
+                length_range: core::ops::RangeInclusive::<u64>::new(
+                    u64::try_from(L).expect("proved by design"),
+                    u64::try_from(U).expect("proved by design"),
+                ),
+                elements: T::declaration(),
+            };
+            match definitions.entry(Self::declaration()) {
+                Entry::Occupied(occ) => {
+                    let existing_def = occ.get();
+                    assert_eq!(
+                    existing_def,
+                    &definition,
+                    "Redefining type schema for {}. Types with the same names are not supported.",
+                    occ.key()
+                );
+                }
+                Entry::Vacant(vac) => {
+                    vac.insert(definition);
+                }
+            }
+            T::add_definitions_recursively(definitions);
+        }
+
+        fn declaration() -> borsh::schema::Declaration {
+            alloc::format!("BoundedVec<{}, {}, {}>", T::declaration(), L, U)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use borsh::schema::BorshSchemaContainer;
+
+        use super::*;
+        #[test]
+        #[allow(clippy::expect_used)]
+        fn borsh_encdec() {
+            let data: BoundedVec<u8, 2, 8> = vec![1u8, 2].try_into().expect("borsh works");
+            let buf = &mut Vec::new();
+            data.serialize(buf).expect("borsh works");
+            let decoded =
+                BoundedVec::<u8, 2, 8>::deserialize(&mut buf.as_slice()).expect("borsh works");
+            let compatible_decoded =
+                BoundedVec::<u8, 1, 255>::deserialize(&mut buf.as_slice()).expect("borsh works");
+            assert_eq!(data.get(0), decoded.get(0));
+            assert_eq!(data.get(1), decoded.get(1));
+            assert_eq!(data.get(0), compatible_decoded.get(0));
+            assert_eq!(data.get(1), compatible_decoded.get(1));
+            assert!(BoundedVec::<u8, 1, 257>::deserialize(&mut buf.as_slice()).is_err());
+
+            let schema = BorshSchemaContainer::for_type::<BoundedVec<u8, 2, 8>>();
+            let schema = schema
+                .get_definition("BoundedVec<u8, 2, 8>")
+                .expect("borsh works");
+            assert!(matches!(
+                schema,
+                borsh::schema::Definition::Sequence {
+                    length_width: 1,
+                    ..
+                }
+            ));
+        }
+    }
+}
+
 #[allow(clippy::unwrap_used)]
 #[cfg(feature = "arbitrary")]
 mod arbitrary {
@@ -653,8 +851,8 @@ mod serde_impl {
         use schemars::schema::{InstanceType, SchemaObject};
         use schemars::JsonSchema;
 
-        // we cannot use attributes, because the do not work with `const`, only numeric literals supported
-        impl<T: JsonSchema, const L: usize, const U: usize> JsonSchema for BoundedVec<T, L, U> {
+        // we cannot use `serde` attributes, because these do not work with `const`, only numeric literals supported
+        impl<T: JsonSchema, const L: usize, const U: usize, W> JsonSchema for BoundedVec<T, L, U, W> {
             fn schema_name() -> alloc::string::String {
                 alloc::format!("BoundedVec{}Min{}Max{}", T::schema_name(), L, U)
             }
@@ -666,13 +864,33 @@ mod serde_impl {
                         items: Some(schemars::schema::SingleOrVec::Single(
                             T::json_schema(gen).into(),
                         )),
-                        min_items: Some(L as u32),
-                        max_items: Some(U as u32),
+                        #[expect(clippy::expect_used)] // design time failure
+                        min_items: Some(
+                            u32::try_from(L).expect("JSON schema does not support so large ranges"),
+                        ),
+                        #[expect(clippy::expect_used)] // design time failure
+                        max_items: Some(
+                            u32::try_from(U).expect("JSON schema does not support so large ranges"),
+                        ),
                         ..Default::default()
                     })),
                     ..Default::default()
                 }
                 .into()
+            }
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+            use schemars::schema_for;
+            #[test]
+            fn json_schema() {
+                let schema = schema_for!(BoundedVec<u8, 2, 8>);
+                let min_items = schema.schema.array.as_ref().unwrap().min_items.unwrap();
+                let max_items = schema.schema.array.as_ref().unwrap().max_items.unwrap();
+                assert_eq!(min_items, 2);
+                assert_eq!(max_items, 8);
             }
         }
     }

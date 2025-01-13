@@ -15,11 +15,13 @@ serde = { version = "1.0.123", default-features = false, features = [
 schemars = { version = ">=0.8,<1", default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
 proptest = { version = "1.0.0", optional = true }
+borsh = { version = "1.5.4", default-features = false, features = ["unstable__schema"], optional = true}
 
 [features]
 serde = ["dep:serde"]
 schema = ["serde", "dep:schemars"]
 arbitrary = ["proptest"]
+borsh = ["dep:borsh"]
 
 [dev-dependencies]
 proptest = { version = "1.0.0" }
