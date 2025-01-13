@@ -22,6 +22,7 @@ assert_eq!(data, [2u8,4].into());
 ## Crate features
 - optional(non-default) `serde` feature that adds serialization to `BoundedVec`.
 - optional(non-default) `arbitrary` feature that adds `proptest::Arbitrary` implementation to `BoundedVec`.
+- optional(non-default) `borsh` feature that adds `borsh` binary encoding, decoding and schema
 
 ## Changelog
 See [CHANGELOG.md](CHANGELOG.md).

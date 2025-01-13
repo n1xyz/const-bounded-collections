@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- optional `borsh` support
+ 
 ## [0.7.1] - 2022-08-01
 ### Added
 - fix `Abrbitrary` impl to honor upper(U) and lower(L) bounds;
