@@ -460,16 +460,73 @@ mod arbitrary {
 
 #[cfg(feature = "serde")]
 mod serde_impl {
+    use super::*;
     use serde::{Deserialize, Serialize};
-    // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
 
+    // direct impl to unify serde in one place instead of doing attribute on declaration and deserialize here
     impl<T: Serialize, const L: usize, const U: usize> Serialize for BoundedVec<T, L, U> {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
-            S: serde::Serializer {
+            S: serde::Serializer,
+        {
             self.inner.serialize(serializer)
         }
-    }    
+    }
+
+    impl<'de, T: Deserialize<'de>, const L: usize, const U: usize> Deserialize<'de>
+        for BoundedVec<T, L, U>
+    {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let inner = Vec::<T>::deserialize(deserializer)?;
+            if inner.len() < L {
+                return Err(serde::de::Error::custom(alloc::format!(
+                    "Lower bound violation: got {} (expected >= {})",
+                    inner.len(),
+                    L
+                )));
+            } else if inner.len() > U {
+                return Err(serde::de::Error::custom(alloc::format!(
+                    "Upper bound violation: got {} (expected <= {})",
+                    inner.len(),
+                    U
+                )));
+            };
+            Ok(BoundedVec { inner })
+        }
+    }
+
+    #[cfg(feature = "schema")]
+    mod schema {
+        use super::*;
+        use schemars::schema::{InstanceType, SchemaObject};
+        use schemars::JsonSchema;
+
+        // we cannot use attributes, because the do not work with `const`, only numeric literals supported
+        impl<T: JsonSchema, const L: usize, const U: usize> JsonSchema for BoundedVec<T, L, U> {
+            fn schema_name() -> alloc::string::String {
+                alloc::format!("BoundedVec{}Min{}Max{}", T::schema_name(), L, U)
+            }
+
+            fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+                SchemaObject {
+                    instance_type: Some(InstanceType::Array.into()),
+                    array: Some(alloc::boxed::Box::new(schemars::schema::ArrayValidation {
+                        items: Some(schemars::schema::SingleOrVec::Single(
+                            T::json_schema(gen).into(),
+                        )),
+                        min_items: Some(L as u32),
+                        max_items: Some(U as u32),
+                        ..Default::default()
+                    })),
+                    ..Default::default()
+                }
+                .into()
+            }
+        }
+    }
 }
 
 #[allow(clippy::unwrap_used)]
