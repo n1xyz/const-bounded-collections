@@ -2,13 +2,10 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use core::slice::{Iter, IterMut};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
 pub struct BoundedVec<T, const L: usize, const U: usize>
 // enable when feature(const_evaluatable_checked) is stable
 // where
@@ -459,6 +456,20 @@ mod arbitrary {
                 .boxed()
         }
     }
+}
+
+#[cfg(feature = "serde")]
+mod serde_impl {
+    use serde::{Deserialize, Serialize};
+    // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
+
+    impl<T: Serialize, const L: usize, const U: usize> Serialize for BoundedVec<T, L, U> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+            self.inner.serialize(serializer)
+        }
+    }    
 }
 
 #[allow(clippy::unwrap_used)]
