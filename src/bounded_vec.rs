@@ -6,19 +6,9 @@ use thiserror::Error;
 
 /// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
-pub struct BoundedVec<T, const L: usize, const U: usize>
-// enable when feature(const_evaluatable_checked) is stable
-// where
-//     Assert<{ L > 0 }>: IsTrue,
-{
+pub struct BoundedVec<T, const L: usize, const U: usize> {
     inner: Vec<T>,
 }
-
-// enum Assert<const COND: bool> {}
-
-// trait IsTrue {}
-
-// impl IsTrue for Assert<true> {}
 
 /// BoundedVec errors
 #[derive(Error, PartialEq, Eq, Debug, Clone)]
@@ -41,18 +31,42 @@ pub enum BoundedVecOutOfBounds {
     },
 }
 
+/// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
+#[derive(Clone, Copy)]
+pub struct Proof<const A: usize, const B: usize>;
+
+/// Type a compile-time proof of valid bounds
+pub const fn prove<const L: usize, const U: usize>() -> Proof<L, U> {
+    if L == 0 {
+        panic!("L must be greater than 0")
+    }
+    if L > U {
+        panic!("L must be less than or equal to U")
+    }
+
+    Proof::<L, U>
+}
+
 impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// Creates new BoundedVec or returns error if items count is out of bounds
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - vector of items within bounds
+    /// * `proof` - compile-time proof of valid bounds create via `prove::<L,U>()` function call
+    ///
+    /// # Errors
+    ///
+    /// * `LowerBoundError` - if `items`` len is less than L (lower bound)
+    /// * `UpperBoundError` - if `items`` len is more than U (upper bound)
     ///
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// let data: BoundedVec<_, 2, 8> = BoundedVec::from_vec(vec![1u8, 2]).unwrap();
+    /// use bounded_vec::prove;
+    /// let data: BoundedVec<_, 2, 8> = BoundedVec::from_vec(vec![1u8, 2], prove::<2, 8>()).unwrap();
     /// ```
-    pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        // remove when feature(const_evaluatable_checked) is stable
-        // and this requirement is encoded in type sig
-        assert!(L > 0);
+    pub fn from_vec(items: Vec<T>, _: Proof<L, U>) -> Result<Self, BoundedVecOutOfBounds> {
         let len = items.len();
         if len < L {
             Err(BoundedVecOutOfBounds::LowerBoundError {
@@ -248,7 +262,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(BoundedVec::from_vec(out).unwrap())
+        Ok(BoundedVec::from_vec(out, prove::<L, U>()).unwrap())
     }
 
     /// Create a new `BoundedVec` by mapping references of `self` elements
@@ -280,7 +294,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(BoundedVec::from_vec(out).unwrap())
+        Ok(BoundedVec::from_vec(out, prove::<L, U>()).unwrap())
     }
 
     /// Returns a reference for an element at index or `None` if out of bounds
@@ -341,7 +355,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
         if v.is_empty() {
             Ok(None)
         } else {
-            Ok(Some(BoundedVec::from_vec(v)?))
+            Ok(Some(BoundedVec::from_vec(v, prove::<L, U>())?))
         }
     }
 }
@@ -353,7 +367,7 @@ impl<T, const L: usize, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, L, U> 
     type Error = BoundedVecOutOfBounds;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
-        BoundedVec::from_vec(value)
+        BoundedVec::from_vec(value, prove::<L, U>())
     }
 }
 
@@ -650,7 +664,7 @@ mod arbitrary {
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             vec(any::<T>(), L..=U)
-                .prop_map(|items| BoundedVec::from_vec(items).unwrap())
+                .prop_map(|items| BoundedVec::from_vec(items, prove::<L, U>()).unwrap())
                 .boxed()
         }
     }
@@ -742,10 +756,10 @@ mod tests {
 
     #[test]
     fn from_vec() {
-        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![1, 2]).is_ok());
-        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![]).is_err());
-        assert!(BoundedVec::<u8, 3, 8>::from_vec(vec![1, 2]).is_err());
-        assert!(BoundedVec::<u8, 1, 2>::from_vec(vec![1, 2, 3]).is_err());
+        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![1, 2], prove::<2, 8>()).is_ok());
+        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![], prove::<2, 8>()).is_err());
+        assert!(BoundedVec::<u8, 3, 8>::from_vec(vec![1, 2], prove::<3, 8>()).is_err());
+        assert!(BoundedVec::<u8, 1, 2>::from_vec(vec![1, 2, 3], prove::<1, 2>()).is_err());
     }
 
     #[test]

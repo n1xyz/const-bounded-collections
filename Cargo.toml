@@ -3,7 +3,7 @@ name = "bounded-vec"
 version = "0.7.1"
 license = "CC0-1.0"
 authors = ["Denys Zadorozhnyi <denys@zadorozhnyi.com>"]
-edition = "2018"
+edition = "2021"
 description = "Non-empty rust Vec wrapper with type guarantees on lower and upper bounds for items quantity."
 repository = "https://github.com/ergoplatform/bounded-vec"
 
