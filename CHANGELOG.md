@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
-- prevent out of bound construction at compile time
+- prevent out of bound construction and define empty vs nonempty at compile time
 
 ## [0.7.1] - 2022-08-01
 ### Added
