@@ -35,11 +35,11 @@ pub enum BoundedVecOutOfBounds {
 // NOTE: we can have proves if needed for some cases like 8/16/32/64 upper bound, so can make memory and serde more compile safe and efficient
 
 /// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NonEmptyWitness<const L: usize, const U: usize>;
 
 /// Possibly empty vector with upper bound.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EmptyWitness<const U: usize>;
 
 /// Type a compile-time proof of valid bounds
@@ -54,29 +54,50 @@ pub const fn non_empty<const L: usize, const U: usize>() -> NonEmptyWitness<L, U
     NonEmptyWitness::<L, U>
 }
 
+/// Type a compile-time proof for possibly empty vector with upper bound
 pub const fn empty<const U: usize>() -> EmptyWitness<U> {
     EmptyWitness::<U>
 }
 
 impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {    
-    pub fn first(&self) -> Option<&T> {
-        self.inner.first()
-    }
-
-    /// Always returns `false` (cannot be empty)
+    /// Returns the first element of the vector, or `None` if it is empty
     ///
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// use std::convert::TryInto;
+    /// use bounded_vec::empty;
+    /// 
+    /// let data: BoundedVec<_, 0, 8, _> = BoundedVec::from_vec(vec![1u8, 2], empty::<8>()).unwrap();
+    /// assert_eq!(data.first(), Some(&1u8));
+    /// ```
+    pub fn first(&self) -> Option<&T> {
+        self.inner.first()
+    }
+
+    /// Returns `true` if the vector contains no elements
     ///
-    /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use bounded_vec::empty;
+    ///
+    /// let data: BoundedVec<_, 0, 8, _> = BoundedVec::from_vec(vec![1u8, 2], empty::<8>()).unwrap();
     /// assert_eq!(data.is_empty(), false);
     /// ```
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }   
 
+    /// Returns the last element of the vector, or `None` if it is empty
+    ///
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use bounded_vec::empty;
+    /// 
+    /// let data: BoundedVec<_, 0, 8, _> = BoundedVec::from_vec(vec![1u8, 2], empty::<8>()).unwrap();
+    /// assert_eq!(data.last(), Some(&2u8));
+    /// ```
     pub fn last(&self) -> Option<&T> {
         self.inner.last()
     }
@@ -589,7 +610,7 @@ mod tests {
 
     #[test]
     fn is_empty() {
-        let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
+        let data: BoundedVec<_, 0, 8, EmptyWitness::<8>> = vec![1u8, 2].try_into().unwrap();
         assert!(!data.is_empty());
     }
 
