@@ -77,7 +77,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
     /// use bounded_vec::empty;
     /// use bounded_vec::EmptyWitness;
     /// let data: BoundedVec<_, 0, 8, EmptyWitness<8>> =
-    ///     BoundedVec::<_, 0, 8, EmptyWitness<8>>::from_vec(vec![1u8, 2], empty::<8>()).unwrap();
+    ///     BoundedVec::<_, 0, 8, EmptyWitness<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
         let _witness = EmptyWitness::<U>(());
@@ -232,7 +232,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     /// use bounded_vec::non_empty;
     /// use bounded_vec::NonEmptyWitness;
     /// let data: BoundedVec<_, 2, 8, NonEmptyWitness<2, 8>> =
-    ///     BoundedVec::<_, 2, 8, NonEmptyWitness<2, 8>>::from_vec(vec![1u8, 2], non_empty::<2, 8>()).unwrap();
+    ///     BoundedVec::<_, 2, 8, NonEmptyWitness<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
         let _witness = NonEmptyWitness::<L, U>(());
@@ -595,7 +595,7 @@ mod arbitrary {
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             vec(any::<T>(), L..=U)
-                .prop_map(|items| Self::from_vec(items, non_empty::<L, U>()).unwrap())
+                .prop_map(|items| Self::from_vec(items).unwrap())
                 .boxed()
         }
     }
@@ -684,10 +684,10 @@ mod tests {
 
     #[test]
     fn from_vec() {
-        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![1, 2], non_empty::<2, 8>()).is_ok());
-        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![], non_empty::<2, 8>()).is_err());
-        assert!(BoundedVec::<u8, 3, 8>::from_vec(vec![1, 2], non_empty::<3, 8>()).is_err());
-        assert!(BoundedVec::<u8, 1, 2>::from_vec(vec![1, 2, 3], non_empty::<1, 2>()).is_err());
+        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![1, 2]).is_ok());
+        assert!(BoundedVec::<u8, 2, 8>::from_vec(vec![]).is_err());
+        assert!(BoundedVec::<u8, 3, 8>::from_vec(vec![1, 2]).is_err());
+        assert!(BoundedVec::<u8, 1, 2>::from_vec(vec![1, 2, 3]).is_err());
     }
 
     #[test]
