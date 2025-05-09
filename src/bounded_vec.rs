@@ -79,10 +79,8 @@ impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
     /// let data: BoundedVec<_, 0, 8, EmptyWitness<8>> =
     ///     BoundedVec::<_, 0, 8, EmptyWitness<8>>::from_vec(vec![1u8, 2], empty::<8>()).unwrap();
     /// ```
-    pub fn from_vec(
-        items: Vec<T>,
-        _witness: EmptyWitness<U>,
-    ) -> Result<Self, BoundedVecOutOfBounds> {
+    pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
+        let _witness = EmptyWitness::<U>(());
         let len = items.len();
         if len > U {
             Err(BoundedVecOutOfBounds::UpperBoundError {
@@ -236,10 +234,8 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     /// let data: BoundedVec<_, 2, 8, NonEmptyWitness<2, 8>> =
     ///     BoundedVec::<_, 2, 8, NonEmptyWitness<2, 8>>::from_vec(vec![1u8, 2], non_empty::<2, 8>()).unwrap();
     /// ```
-    pub fn from_vec(
-        items: Vec<T>,
-        _witness: NonEmptyWitness<L, U>,
-    ) -> Result<Self, BoundedVecOutOfBounds> {
+    pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
+        let _witness = NonEmptyWitness::<L, U>(());
         let len = items.len();
         if len < L {
             Err(BoundedVecOutOfBounds::LowerBoundError {
@@ -387,10 +383,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(
-            BoundedVec::<N, L, U, NonEmptyWitness<L, U>>::from_vec(out, non_empty::<L, U>())
-                .unwrap(),
-        )
+        Ok(BoundedVec::<N, L, U, NonEmptyWitness<L, U>>::from_vec(out).unwrap())
     }
 
     /// Create a new `BoundedVec` by mapping references of `self` elements
@@ -425,10 +418,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(
-            BoundedVec::<N, L, U, NonEmptyWitness<L, U>>::from_vec(out, non_empty::<L, U>())
-                .unwrap(),
-        )
+        Ok(BoundedVec::<N, L, U, NonEmptyWitness<L, U>>::from_vec(out).unwrap())
     }
 
     /// Returns the last and all the rest of the elements
@@ -467,9 +457,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
         if v.is_empty() {
             Ok(None)
         } else {
-            Ok(Some(
-                BoundedVec::<T, L, U, NonEmptyWitness<L, U>>::from_vec(v, non_empty::<L, U>())?,
-            ))
+            Ok(Some(Self::from_vec(v)?))
         }
     }
 }
@@ -490,7 +478,7 @@ impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
     type Error = BoundedVecOutOfBounds;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
-        BoundedVec::<T, L, U, NonEmptyWitness<L, U>>::from_vec(value, non_empty::<L, U>())
+        Self::from_vec(value)
     }
 }
 
@@ -498,7 +486,7 @@ impl<T, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, 0, U, EmptyWitness<U>>
     type Error = BoundedVecOutOfBounds;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
-        BoundedVec::<T, 0, U, EmptyWitness<U>>::from_vec(value, empty::<U>())
+        Self::from_vec(value)
     }
 }
 
@@ -607,13 +595,7 @@ mod arbitrary {
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             vec(any::<T>(), L..=U)
-                .prop_map(|items| {
-                    BoundedVec::<T, L, U, NonEmptyWitness<L, U>>::from_vec(
-                        items,
-                        non_empty::<L, U>(),
-                    )
-                    .unwrap()
-                })
+                .prop_map(|items| Self::from_vec(items, non_empty::<L, U>()).unwrap())
                 .boxed()
         }
     }
@@ -710,7 +692,7 @@ mod tests {
 
     #[test]
     fn is_empty() {
-        let data: BoundedVec<_, 0, 8, EmptyWitness<8>> = vec![1u8, 2].try_into().unwrap();
+        let data: EmptyBoundedVec<_, 8> = vec![1u8, 2].try_into().unwrap();
         assert!(!data.is_empty());
     }
 
