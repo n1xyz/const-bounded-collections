@@ -477,6 +477,13 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
 /// A non-empty Vec with no effective upper-bound on its length
 pub type NonEmptyVec<T> = BoundedVec<T, 1, { usize::MAX }, NonEmptyWitness<1, { usize::MAX }>>;
 
+/// Possibly empty Vec with upper-bound on its length
+pub type EmptyBoundedVec<T, const U: usize> = BoundedVec<T, 0, U, EmptyWitness<U>>;
+
+/// Non-empty Vec with bounded length
+pub type NonEmptyBoundedVec<T, const L: usize, const U: usize> =
+    BoundedVec<T, L, U, NonEmptyWitness<L, U>>;
+
 impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
     for BoundedVec<T, L, U, NonEmptyWitness<L, U>>
 {
