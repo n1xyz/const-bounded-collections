@@ -36,11 +36,11 @@ pub enum BoundedVecOutOfBounds {
 
 /// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct NonEmptyWitness<const L: usize, const U: usize>;
+pub struct NonEmptyWitness<const L: usize, const U: usize>(());
 
 /// Possibly empty vector with upper bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmptyWitness<const U: usize>;
+pub struct EmptyWitness<const U: usize>(());
 
 /// Type a compile-time proof of valid bounds
 pub const fn non_empty<const L: usize, const U: usize>() -> NonEmptyWitness<L, U> {
@@ -51,12 +51,12 @@ pub const fn non_empty<const L: usize, const U: usize>() -> NonEmptyWitness<L, U
         panic!("L must be less than or equal to U")
     }
 
-    NonEmptyWitness::<L, U>
+    NonEmptyWitness::<L, U>(())
 }
 
 /// Type a compile-time proof for possibly empty vector with upper bound
 pub const fn empty<const U: usize>() -> EmptyWitness<U> {
-    EmptyWitness::<U>
+    EmptyWitness::<U>(())
 }
 
 impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
