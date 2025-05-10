@@ -4,7 +4,11 @@ use core::convert::{TryFrom, TryInto};
 use core::slice::{Iter, IterMut};
 use thiserror::Error;
 
-/// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity
+/// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity.
+/// 
+/// # Type Parameters
+/// 
+/// * `W` - witness type to prove vector ranges and shape if interface accordingly
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
 pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty<L, U>> {
     inner: Vec<T>,
@@ -32,7 +36,8 @@ pub enum BoundedVecOutOfBounds {
     },
 }
 
-mod witnesses {
+/// Module for type witnesses used to prove vector bounds at compile time
+pub mod witnesses {
 
     // NOTE: we can have proves if needed for some cases like 8/16/32/64 upper bound, so can make memory and serde more compile safe and efficient
 
@@ -68,7 +73,6 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// # Parameters
     ///
     /// * `items` - vector of items within bounds
-    /// * `_witness` - compile-time proof of valid bounds create via `empty::<U>()` function call
     ///
     /// # Errors
     ///
@@ -77,8 +81,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::empty;
-    /// use bounded_vec::EmptyWitness;
+    /// use bounded_vec::witnesses;
     /// let data: BoundedVec<_, 0, 8, witnesses::Empty<8>> =
     ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
@@ -103,8 +106,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::empty;
-    /// use bounded_vec::EmptyWitness;
+    /// use bounded_vec::witnesses;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
@@ -119,8 +121,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::empty;
-    /// use bounded_vec::EmptyWitness;
+    /// use bounded_vec::witnesses;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
@@ -135,8 +136,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::empty;
-    /// use bounded_vec::EmptyWitness;
+    /// use bounded_vec::witnesses;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
@@ -222,7 +222,6 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// # Parameters
     ///
     /// * `items` - vector of items within bounds
-    /// * `_witness` - compile-time proof of valid bounds create via `non_empty::<L,U>()` function call
     ///
     /// # Errors
     ///
@@ -232,8 +231,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::non_empty;
-    /// use bounded_vec::NonEmptyWitness;
+    /// use bounded_vec::witnesses;
     /// let data: BoundedVec<_, 2, 8, witnesses::NonEmpty<2, 8>> =
     ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
