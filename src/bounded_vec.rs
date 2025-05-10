@@ -86,7 +86,9 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        let _witness = witnesses::empty::<U>();
+        const {
+            let _witness = witnesses::empty::<U>();
+        }
         let len = items.len();
         if len > U {
             Err(BoundedVecOutOfBounds::UpperBoundError {
@@ -236,7 +238,9 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        let _witness = witnesses::non_empty::<L, U>();
+        const {
+            let _witness = witnesses::non_empty::<L, U>();
+        }
         let len = items.len();
         if len < L {
             Err(BoundedVecOutOfBounds::LowerBoundError {
