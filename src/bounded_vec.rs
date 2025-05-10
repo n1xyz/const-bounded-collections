@@ -6,7 +6,7 @@ use thiserror::Error;
 
 /// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
-pub struct BoundedVec<T, const L: usize, const U: usize, W = NonEmptyWitness<L, U>> {
+pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty<L, U>> {
     inner: Vec<T>,
     _marker: core::marker::PhantomData<W>,
 }
@@ -32,34 +32,37 @@ pub enum BoundedVecOutOfBounds {
     },
 }
 
-// NOTE: we can have proves if needed for some cases like 8/16/32/64 upper bound, so can make memory and serde more compile safe and efficient
+mod witnesses {
 
-/// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct NonEmptyWitness<const L: usize, const U: usize>(());
+    // NOTE: we can have proves if needed for some cases like 8/16/32/64 upper bound, so can make memory and serde more compile safe and efficient
 
-/// Possibly empty vector with upper bound.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmptyWitness<const U: usize>(());
+    /// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct NonEmpty<const L: usize, const U: usize>(());
 
-/// Type a compile-time proof of valid bounds
-pub const fn non_empty<const L: usize, const U: usize>() -> NonEmptyWitness<L, U> {
-    if L == 0 {
-        panic!("L must be greater than 0")
+    /// Possibly empty vector with upper bound.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct Empty<const U: usize>(());
+
+    /// Type a compile-time proof of valid bounds
+    pub const fn non_empty<const L: usize, const U: usize>() -> NonEmpty<L, U> {
+        if L == 0 {
+            panic!("L must be greater than 0")
+        }
+        if L > U {
+            panic!("L must be less than or equal to U")
+        }
+
+        NonEmpty::<L, U>(())
     }
-    if L > U {
-        panic!("L must be less than or equal to U")
-    }
 
-    NonEmptyWitness::<L, U>(())
+    /// Type a compile-time proof for possibly empty vector with upper bound
+    pub const fn empty<const U: usize>() -> Empty<U> {
+        Empty::<U>(())
+    }
 }
 
-/// Type a compile-time proof for possibly empty vector with upper bound
-pub const fn empty<const U: usize>() -> EmptyWitness<U> {
-    EmptyWitness::<U>(())
-}
-
-impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
+impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// Creates new BoundedVec or returns error if items count is out of bounds
     ///
     /// # Parameters
@@ -76,11 +79,11 @@ impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
     /// use bounded_vec::BoundedVec;
     /// use bounded_vec::empty;
     /// use bounded_vec::EmptyWitness;
-    /// let data: BoundedVec<_, 0, 8, EmptyWitness<8>> =
-    ///     BoundedVec::<_, 0, 8, EmptyWitness<8>>::from_vec(vec![1u8, 2]).unwrap();
+    /// let data: BoundedVec<_, 0, 8, witnesses::Empty<8>> =
+    ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        let _witness = EmptyWitness::<U>(());
+        let _witness = witnesses::empty::<U>();
         let len = items.len();
         if len > U {
             Err(BoundedVecOutOfBounds::UpperBoundError {
@@ -104,7 +107,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
     /// use bounded_vec::EmptyWitness;
     /// use std::convert::TryInto;
     ///
-    /// let data: BoundedVec<u8, 0, 8, EmptyWitness<8>> = vec![1u8, 2].try_into().unwrap();
+    /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
     /// assert_eq!(data.first(), Some(&1u8));
     /// ```
     pub fn first(&self) -> Option<&T> {
@@ -120,7 +123,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
     /// use bounded_vec::EmptyWitness;
     /// use std::convert::TryInto;
     ///
-    /// let data: BoundedVec<u8, 0, 8, EmptyWitness<8>> = vec![1u8, 2].try_into().unwrap();
+    /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
     /// assert_eq!(data.is_empty(), false);
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -136,7 +139,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, EmptyWitness<U>> {
     /// use bounded_vec::EmptyWitness;
     /// use std::convert::TryInto;
     ///
-    /// let data: BoundedVec<u8, 0, 8, EmptyWitness<8>> = vec![1u8, 2].try_into().unwrap();
+    /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
     /// assert_eq!(data.last(), Some(&2u8));
     /// ```
     pub fn last(&self) -> Option<&T> {
@@ -213,7 +216,7 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     }
 }
 
-impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U>> {
+impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<L, U>> {
     /// Creates new BoundedVec or returns error if items count is out of bounds
     ///
     /// # Parameters
@@ -231,11 +234,11 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     /// use bounded_vec::BoundedVec;
     /// use bounded_vec::non_empty;
     /// use bounded_vec::NonEmptyWitness;
-    /// let data: BoundedVec<_, 2, 8, NonEmptyWitness<2, 8>> =
-    ///     BoundedVec::<_, 2, 8, NonEmptyWitness<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
+    /// let data: BoundedVec<_, 2, 8, witnesses::NonEmpty<2, 8>> =
+    ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        let _witness = NonEmptyWitness::<L, U>(());
+        let _witness = witnesses::non_empty::<L, U>();
         let len = items.len();
         if len < L {
             Err(BoundedVecOutOfBounds::LowerBoundError {
@@ -312,7 +315,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     /// let data = data.mapped(|x|x*2);
     /// assert_eq!(data, [2u8,4].into());
     /// ```
-    pub fn mapped<F, N>(self, map_fn: F) -> BoundedVec<N, L, U, NonEmptyWitness<L, U>>
+    pub fn mapped<F, N>(self, map_fn: F) -> BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>
     where
         F: FnMut(T) -> N,
     {
@@ -335,7 +338,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     /// let data = data.mapped_ref(|x|x*2);
     /// assert_eq!(data, [2u8,4].into());
     /// ```
-    pub fn mapped_ref<F, N>(&self, map_fn: F) -> BoundedVec<N, L, U, NonEmptyWitness<L, U>>
+    pub fn mapped_ref<F, N>(&self, map_fn: F) -> BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>
     where
         F: FnMut(&T) -> N,
     {
@@ -373,7 +376,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     pub fn try_mapped<F, N, E>(
         self,
         map_fn: F,
-    ) -> Result<BoundedVec<N, L, U, NonEmptyWitness<L, U>>, E>
+    ) -> Result<BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>, E>
     where
         F: FnMut(T) -> Result<N, E>,
     {
@@ -383,7 +386,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(BoundedVec::<N, L, U, NonEmptyWitness<L, U>>::from_vec(out).unwrap())
+        Ok(BoundedVec::<N, L, U, witnesses::NonEmpty<L, U>>::from_vec(out).unwrap())
     }
 
     /// Create a new `BoundedVec` by mapping references of `self` elements
@@ -408,7 +411,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     pub fn try_mapped_ref<F, N, E>(
         &self,
         map_fn: F,
-    ) -> Result<BoundedVec<N, L, U, NonEmptyWitness<L, U>>, E>
+    ) -> Result<BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>, E>
     where
         F: FnMut(&T) -> Result<N, E>,
     {
@@ -418,7 +421,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(BoundedVec::<N, L, U, NonEmptyWitness<L, U>>::from_vec(out).unwrap())
+        Ok(BoundedVec::<N, L, U, witnesses::NonEmpty<L, U>>::from_vec(out).unwrap())
     }
 
     /// Returns the last and all the rest of the elements
@@ -428,7 +431,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     }
 
     /// Return a new BoundedVec with indices included
-    pub fn enumerated(self) -> BoundedVec<(usize, T), L, U, NonEmptyWitness<L, U>> {
+    pub fn enumerated(self) -> BoundedVec<(usize, T), L, U, witnesses::NonEmpty<L, U>> {
         #[allow(clippy::unwrap_used)]
         self.inner
             .into_iter()
@@ -453,7 +456,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
     /// ```
     pub fn opt_empty_vec(
         v: Vec<T>,
-    ) -> Result<Option<BoundedVec<T, L, U, NonEmptyWitness<L, U>>>, BoundedVecOutOfBounds> {
+    ) -> Result<Option<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>, BoundedVecOutOfBounds> {
         if v.is_empty() {
             Ok(None)
         } else {
@@ -463,17 +466,17 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, NonEmptyWitness<L, U
 }
 
 /// A non-empty Vec with no effective upper-bound on its length
-pub type NonEmptyVec<T> = BoundedVec<T, 1, { usize::MAX }, NonEmptyWitness<1, { usize::MAX }>>;
+pub type NonEmptyVec<T> = BoundedVec<T, 1, { usize::MAX }, witnesses::NonEmpty<1, { usize::MAX }>>;
 
 /// Possibly empty Vec with upper-bound on its length
-pub type EmptyBoundedVec<T, const U: usize> = BoundedVec<T, 0, U, EmptyWitness<U>>;
+pub type EmptyBoundedVec<T, const U: usize> = BoundedVec<T, 0, U, witnesses::Empty<U>>;
 
 /// Non-empty Vec with bounded length
 pub type NonEmptyBoundedVec<T, const L: usize, const U: usize> =
-    BoundedVec<T, L, U, NonEmptyWitness<L, U>>;
+    BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>;
 
 impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
-    for BoundedVec<T, L, U, NonEmptyWitness<L, U>>
+    for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
 {
     type Error = BoundedVecOutOfBounds;
 
@@ -482,7 +485,7 @@ impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
     }
 }
 
-impl<T, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, 0, U, EmptyWitness<U>> {
+impl<T, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, 0, U, witnesses::Empty<U>> {
     type Error = BoundedVecOutOfBounds;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
@@ -492,7 +495,7 @@ impl<T, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, 0, U, EmptyWitness<U>>
 
 // when feature(const_evaluatable_checked) is stable cover all array sizes (L..=U)
 impl<T, const L: usize, const U: usize> From<[T; L]>
-    for BoundedVec<T, L, U, NonEmptyWitness<L, U>>
+    for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
 {
     fn from(arr: [T; L]) -> Self {
         BoundedVec {
@@ -502,10 +505,10 @@ impl<T, const L: usize, const U: usize> From<[T; L]>
     }
 }
 
-impl<T, const L: usize, const U: usize> From<BoundedVec<T, L, U, NonEmptyWitness<L, U>>>
+impl<T, const L: usize, const U: usize> From<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>
     for Vec<T>
 {
-    fn from(v: BoundedVec<T, L, U, NonEmptyWitness<L, U>>) -> Self {
+    fn from(v: BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>) -> Self {
         v.inner
     }
 }
@@ -568,7 +571,7 @@ pub trait OptBoundedVecToVec<T> {
 }
 
 impl<T, const L: usize, const U: usize> OptBoundedVecToVec<T>
-    for Option<BoundedVec<T, L, U, NonEmptyWitness<L, U>>>
+    for Option<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>
 {
     fn to_vec(self) -> Vec<T> {
         self.map(|bv| bv.into()).unwrap_or_default()
@@ -586,7 +589,7 @@ mod arbitrary {
     use proptest::strategy::BoxedStrategy;
 
     impl<T: Arbitrary, const L: usize, const U: usize> Arbitrary
-        for BoundedVec<T, L, U, NonEmptyWitness<L, U>>
+        for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
     where
         T::Strategy: 'static,
     {
