@@ -51,19 +51,21 @@ pub mod witnesses {
 
     /// Type a compile-time proof of valid bounds
     pub const fn non_empty<const L: usize, const U: usize>() -> NonEmpty<L, U> {
-        if L == 0 {
-            panic!("L must be greater than 0")
-        }
-        if L > U {
-            panic!("L must be less than or equal to U")
-        }
+        const {
+            if L == 0 {
+                panic!("L must be greater than 0")
+            }
+            if L > U {
+                panic!("L must be less than or equal to U")
+            }
 
-        NonEmpty::<L, U>(())
+            NonEmpty::<L, U>(())
+        }
     }
 
     /// Type a compile-time proof for possibly empty vector with upper bound
     pub const fn empty<const U: usize>() -> Empty<U> {
-        Empty::<U>(())
+        const { Empty::<U>(()) }
     }
 }
 
@@ -86,9 +88,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        const {
-            let _witness = witnesses::empty::<U>();
-        }
+        let _witness = witnesses::empty::<U>();
         let len = items.len();
         if len > U {
             Err(BoundedVecOutOfBounds::UpperBoundError {
@@ -238,9 +238,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        const {
-            let _witness = witnesses::non_empty::<L, U>();
-        }
+        let _witness = witnesses::non_empty::<L, U>();
         let len = items.len();
         if len < L {
             Err(BoundedVecOutOfBounds::LowerBoundError {
