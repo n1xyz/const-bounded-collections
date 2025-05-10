@@ -5,9 +5,9 @@ use core::slice::{Iter, IterMut};
 use thiserror::Error;
 
 /// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity.
-/// 
+///
 /// # Type Parameters
-/// 
+///
 /// * `W` - witness type to prove vector ranges and shape if interface accordingly
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
 pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty<L, U>> {
