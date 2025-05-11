@@ -4,21 +4,16 @@ use core::convert::{TryFrom, TryInto};
 use core::slice::{Iter, IterMut};
 use thiserror::Error;
 
-/// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity
+/// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity.
+///
+/// # Type Parameters
+///
+/// * `W` - witness type to prove vector ranges and shape if interface accordingly
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
-pub struct BoundedVec<T, const L: usize, const U: usize>
-// enable when feature(const_evaluatable_checked) is stable
-// where
-//     Assert<{ L > 0 }>: IsTrue,
-{
+pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty<L, U>> {
     inner: Vec<T>,
+    _marker: core::marker::PhantomData<W>,
 }
-
-// enum Assert<const COND: bool> {}
-
-// trait IsTrue {}
-
-// impl IsTrue for Assert<true> {}
 
 /// BoundedVec errors
 #[derive(Error, PartialEq, Eq, Debug, Clone)]
@@ -41,34 +36,121 @@ pub enum BoundedVecOutOfBounds {
     },
 }
 
-impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
+/// Module for type witnesses used to prove vector bounds at compile time
+pub mod witnesses {
+
+    // NOTE: we can have proves if needed for some cases like 8/16/32/64 upper bound, so can make memory and serde more compile safe and efficient
+
+    /// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct NonEmpty<const L: usize, const U: usize>(());
+
+    /// Possibly empty vector with upper bound.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct Empty<const U: usize>(());
+
+    /// Type a compile-time proof of valid bounds
+    pub const fn non_empty<const L: usize, const U: usize>() -> NonEmpty<L, U> {
+        const {
+            if L == 0 {
+                panic!("L must be greater than 0")
+            }
+            if L > U {
+                panic!("L must be less than or equal to U")
+            }
+
+            NonEmpty::<L, U>(())
+        }
+    }
+
+    /// Type a compile-time proof for possibly empty vector with upper bound
+    pub const fn empty<const U: usize>() -> Empty<U> {
+        const { Empty::<U>(()) }
+    }
+}
+
+impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// Creates new BoundedVec or returns error if items count is out of bounds
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - vector of items within bounds
+    ///
+    /// # Errors
+    ///
+    /// * `UpperBoundError` - if `items`` len is more than U (upper bound)
     ///
     /// # Example
     /// ```
     /// use bounded_vec::BoundedVec;
-    /// let data: BoundedVec<_, 2, 8> = BoundedVec::from_vec(vec![1u8, 2]).unwrap();
+    /// use bounded_vec::witnesses;
+    /// let data: BoundedVec<_, 0, 8, witnesses::Empty<8>> =
+    ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
     pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
-        // remove when feature(const_evaluatable_checked) is stable
-        // and this requirement is encoded in type sig
-        assert!(L > 0);
+        let _witness = witnesses::empty::<U>();
         let len = items.len();
-        if len < L {
-            Err(BoundedVecOutOfBounds::LowerBoundError {
-                lower_bound: L,
-                got: len,
-            })
-        } else if len > U {
+        if len > U {
             Err(BoundedVecOutOfBounds::UpperBoundError {
                 upper_bound: U,
                 got: len,
             })
         } else {
-            Ok(BoundedVec { inner: items })
+            Ok(BoundedVec {
+                inner: items,
+                _marker: core::marker::PhantomData,
+            })
         }
     }
 
+    /// Returns the first element of the vector, or `None` if it is empty
+    ///
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use bounded_vec::witnesses;
+    /// use std::convert::TryInto;
+    ///
+    /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
+    /// assert_eq!(data.first(), Some(&1u8));
+    /// ```
+    pub fn first(&self) -> Option<&T> {
+        self.inner.first()
+    }
+
+    /// Returns `true` if the vector contains no elements
+    ///
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use bounded_vec::witnesses;
+    /// use std::convert::TryInto;
+    ///
+    /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
+    /// assert_eq!(data.is_empty(), false);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Returns the last element of the vector, or `None` if it is empty
+    ///
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use bounded_vec::witnesses;
+    /// use std::convert::TryInto;
+    ///
+    /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
+    /// assert_eq!(data.last(), Some(&2u8));
+    /// ```
+    pub fn last(&self) -> Option<&T> {
+        self.inner.last()
+    }
+}
+
+/// Part which works for all witnesses
+impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     /// Returns a reference to underlying `Vec``
     ///
     /// # Example
@@ -94,35 +176,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// assert_eq!(data.to_vec(), vec![1u8,2]);
     /// ```
     pub fn to_vec(self) -> Vec<T> {
-        self.into()
-    }
-
-    /// Returns the number of elements in the vector
-    ///
-    /// # Example
-    /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use std::convert::TryInto;
-    ///
-    /// let data: BoundedVec<u8, 2, 4> = vec![1u8,2].try_into().unwrap();
-    /// assert_eq!(data.len(), 2);
-    /// ```
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    /// Always returns `false` (cannot be empty)
-    ///
-    /// # Example
-    /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use std::convert::TryInto;
-    ///
-    /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
-    /// assert_eq!(data.is_empty(), false);
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        false
+        self.inner
     }
 
     /// Extracts a slice containing the entire vector.
@@ -137,6 +191,85 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// ```
     pub fn as_slice(&self) -> &[T] {
         self.inner.as_slice()
+    }
+
+    /// Returns a reference for an element at index or `None` if out of bounds
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
+    /// let elem = *data.get(1).unwrap();
+    /// assert_eq!(elem, 2);
+    /// ```
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.inner.get(index)
+    }
+
+    /// Returns an iterator
+    pub fn iter(&self) -> Iter<T> {
+        self.inner.iter()
+    }
+
+    /// Returns an iterator that allows to modify each value
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        self.inner.iter_mut()
+    }
+}
+
+impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<L, U>> {
+    /// Creates new BoundedVec or returns error if items count is out of bounds
+    ///
+    /// # Parameters
+    ///
+    /// * `items` - vector of items within bounds
+    ///
+    /// # Errors
+    ///
+    /// * `LowerBoundError` - if `items`` len is less than L (lower bound)
+    /// * `UpperBoundError` - if `items`` len is more than U (upper bound)
+    ///
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use bounded_vec::witnesses;
+    /// let data: BoundedVec<_, 2, 8, witnesses::NonEmpty<2, 8>> =
+    ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
+    /// ```
+    pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
+        let _witness = witnesses::non_empty::<L, U>();
+        let len = items.len();
+        if len < L {
+            Err(BoundedVecOutOfBounds::LowerBoundError {
+                lower_bound: L,
+                got: len,
+            })
+        } else if len > U {
+            Err(BoundedVecOutOfBounds::UpperBoundError {
+                upper_bound: U,
+                got: len,
+            })
+        } else {
+            Ok(BoundedVec {
+                inner: items,
+                _marker: core::marker::PhantomData,
+            })
+        }
+    }
+
+    /// Returns the number of elements in the vector
+    ///
+    /// # Example
+    /// ```
+    /// use bounded_vec::BoundedVec;
+    /// use std::convert::TryInto;
+    ///
+    /// let data: BoundedVec<u8, 2, 4> = vec![1u8,2].try_into().unwrap();
+    /// assert_eq!(data.len(), 2);
+    /// ```
+    pub fn len(&self) -> usize {
+        self.inner.len()
     }
 
     /// Returns the first element of non-empty Vec
@@ -182,12 +315,13 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// let data = data.mapped(|x|x*2);
     /// assert_eq!(data, [2u8,4].into());
     /// ```
-    pub fn mapped<F, N>(self, map_fn: F) -> BoundedVec<N, L, U>
+    pub fn mapped<F, N>(self, map_fn: F) -> BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>
     where
         F: FnMut(T) -> N,
     {
         BoundedVec {
             inner: self.inner.into_iter().map(map_fn).collect::<Vec<_>>(),
+            _marker: core::marker::PhantomData,
         }
     }
 
@@ -204,12 +338,13 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// let data = data.mapped_ref(|x|x*2);
     /// assert_eq!(data, [2u8,4].into());
     /// ```
-    pub fn mapped_ref<F, N>(&self, map_fn: F) -> BoundedVec<N, L, U>
+    pub fn mapped_ref<F, N>(&self, map_fn: F) -> BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>
     where
         F: FnMut(&T) -> N,
     {
         BoundedVec {
             inner: self.inner.iter().map(map_fn).collect::<Vec<_>>(),
+            _marker: core::marker::PhantomData,
         }
     }
 
@@ -238,7 +373,10 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// let data: Result<BoundedVec<u8, 2, 8>, _> = data.try_mapped(|x| Err("failed"));
     /// assert_eq!(data, Err("failed"));
     /// ```
-    pub fn try_mapped<F, N, E>(self, map_fn: F) -> Result<BoundedVec<N, L, U>, E>
+    pub fn try_mapped<F, N, E>(
+        self,
+        map_fn: F,
+    ) -> Result<BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>, E>
     where
         F: FnMut(T) -> Result<N, E>,
     {
@@ -248,7 +386,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(BoundedVec::from_vec(out).unwrap())
+        Ok(BoundedVec::<N, L, U, witnesses::NonEmpty<L, U>>::from_vec(out).unwrap())
     }
 
     /// Create a new `BoundedVec` by mapping references of `self` elements
@@ -270,7 +408,10 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// let data: Result<BoundedVec<u8, 2, 8>, _> = data.try_mapped_ref(|x| Err("failed"));
     /// assert_eq!(data, Err("failed"));
     /// ```
-    pub fn try_mapped_ref<F, N, E>(&self, map_fn: F) -> Result<BoundedVec<N, L, U>, E>
+    pub fn try_mapped_ref<F, N, E>(
+        &self,
+        map_fn: F,
+    ) -> Result<BoundedVec<N, L, U, witnesses::NonEmpty<L, U>>, E>
     where
         F: FnMut(&T) -> Result<N, E>,
     {
@@ -280,31 +421,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
             out.push(map_fn(element)?);
         }
         #[allow(clippy::unwrap_used)]
-        Ok(BoundedVec::from_vec(out).unwrap())
-    }
-
-    /// Returns a reference for an element at index or `None` if out of bounds
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bounded_vec::BoundedVec;
-    /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
-    /// let elem = *data.get(1).unwrap();
-    /// assert_eq!(elem, 2);
-    /// ```
-    pub fn get(&self, index: usize) -> Option<&T> {
-        self.inner.get(index)
-    }
-
-    /// Returns an iterator
-    pub fn iter(&self) -> Iter<T> {
-        self.inner.iter()
-    }
-
-    /// Returns an iterator that allows to modify each value
-    pub fn iter_mut(&mut self) -> IterMut<T> {
-        self.inner.iter_mut()
+        Ok(BoundedVec::<N, L, U, witnesses::NonEmpty<L, U>>::from_vec(out).unwrap())
     }
 
     /// Returns the last and all the rest of the elements
@@ -314,7 +431,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     }
 
     /// Return a new BoundedVec with indices included
-    pub fn enumerated(self) -> BoundedVec<(usize, T), L, U> {
+    pub fn enumerated(self) -> BoundedVec<(usize, T), L, U, witnesses::NonEmpty<L, U>> {
         #[allow(clippy::unwrap_used)]
         self.inner
             .into_iter()
@@ -337,40 +454,66 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U> {
     /// assert!(opt_bv_some.is_some());
     /// assert_eq!(opt_bv_some.to_vec(), vec![0u8, 2]);
     /// ```
-    pub fn opt_empty_vec(v: Vec<T>) -> Result<Option<BoundedVec<T, L, U>>, BoundedVecOutOfBounds> {
+    pub fn opt_empty_vec(
+        v: Vec<T>,
+    ) -> Result<Option<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>, BoundedVecOutOfBounds> {
         if v.is_empty() {
             Ok(None)
         } else {
-            Ok(Some(BoundedVec::from_vec(v)?))
+            Ok(Some(Self::from_vec(v)?))
         }
     }
 }
 
 /// A non-empty Vec with no effective upper-bound on its length
-pub type NonEmptyVec<T> = BoundedVec<T, 1, { usize::MAX }>;
+pub type NonEmptyVec<T> = BoundedVec<T, 1, { usize::MAX }, witnesses::NonEmpty<1, { usize::MAX }>>;
 
-impl<T, const L: usize, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, L, U> {
+/// Possibly empty Vec with upper-bound on its length
+pub type EmptyBoundedVec<T, const U: usize> = BoundedVec<T, 0, U, witnesses::Empty<U>>;
+
+/// Non-empty Vec with bounded length
+pub type NonEmptyBoundedVec<T, const L: usize, const U: usize> =
+    BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>;
+
+impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
+    for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
+{
     type Error = BoundedVecOutOfBounds;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
-        BoundedVec::from_vec(value)
+        Self::from_vec(value)
+    }
+}
+
+impl<T, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, 0, U, witnesses::Empty<U>> {
+    type Error = BoundedVecOutOfBounds;
+
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        Self::from_vec(value)
     }
 }
 
 // when feature(const_evaluatable_checked) is stable cover all array sizes (L..=U)
-impl<T, const L: usize, const U: usize> From<[T; L]> for BoundedVec<T, L, U> {
+impl<T, const L: usize, const U: usize> From<[T; L]>
+    for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
+{
     fn from(arr: [T; L]) -> Self {
-        BoundedVec { inner: arr.into() }
+        BoundedVec {
+            inner: arr.into(),
+            _marker: core::marker::PhantomData,
+        }
     }
 }
 
-impl<T, const L: usize, const U: usize> From<BoundedVec<T, L, U>> for Vec<T> {
-    fn from(v: BoundedVec<T, L, U>) -> Self {
+impl<T, const L: usize, const U: usize> From<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>
+    for Vec<T>
+{
+    fn from(v: BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>) -> Self {
         v.inner
     }
 }
 
-impl<T, const L: usize, const U: usize> IntoIterator for BoundedVec<T, L, U> {
+impl<T, const L: usize, const U: usize, W> IntoIterator for BoundedVec<T, L, U, W> {
     type Item = T;
     type IntoIter = vec::IntoIter<T>;
 
@@ -379,7 +522,7 @@ impl<T, const L: usize, const U: usize> IntoIterator for BoundedVec<T, L, U> {
     }
 }
 
-impl<'a, T, const L: usize, const U: usize> IntoIterator for &'a BoundedVec<T, L, U> {
+impl<'a, T, const L: usize, const U: usize, W> IntoIterator for &'a BoundedVec<T, L, U, W> {
     type Item = &'a T;
     type IntoIter = core::slice::Iter<'a, T>;
 
@@ -388,7 +531,7 @@ impl<'a, T, const L: usize, const U: usize> IntoIterator for &'a BoundedVec<T, L
     }
 }
 
-impl<'a, T, const L: usize, const U: usize> IntoIterator for &'a mut BoundedVec<T, L, U> {
+impl<'a, T, const L: usize, const U: usize, W> IntoIterator for &'a mut BoundedVec<T, L, U, W> {
     type Item = &'a mut T;
     type IntoIter = core::slice::IterMut<'a, T>;
 
@@ -397,25 +540,25 @@ impl<'a, T, const L: usize, const U: usize> IntoIterator for &'a mut BoundedVec<
     }
 }
 
-impl<T, const L: usize, const U: usize> AsRef<Vec<T>> for BoundedVec<T, L, U> {
+impl<T, const L: usize, const U: usize, W> AsRef<Vec<T>> for BoundedVec<T, L, U, W> {
     fn as_ref(&self) -> &Vec<T> {
         &self.inner
     }
 }
 
-impl<T, const L: usize, const U: usize> AsRef<[T]> for BoundedVec<T, L, U> {
+impl<T, const L: usize, const U: usize, W> AsRef<[T]> for BoundedVec<T, L, U, W> {
     fn as_ref(&self) -> &[T] {
         self.inner.as_ref()
     }
 }
 
-impl<T, const L: usize, const U: usize> AsMut<Vec<T>> for BoundedVec<T, L, U> {
+impl<T, const L: usize, const U: usize, W> AsMut<Vec<T>> for BoundedVec<T, L, U, W> {
     fn as_mut(&mut self) -> &mut Vec<T> {
         self.inner.as_mut()
     }
 }
 
-impl<T, const L: usize, const U: usize> AsMut<[T]> for BoundedVec<T, L, U> {
+impl<T, const L: usize, const U: usize, W> AsMut<[T]> for BoundedVec<T, L, U, W> {
     fn as_mut(&mut self) -> &mut [T] {
         self.inner.as_mut()
     }
@@ -427,7 +570,9 @@ pub trait OptBoundedVecToVec<T> {
     fn to_vec(self) -> Vec<T>;
 }
 
-impl<T, const L: usize, const U: usize> OptBoundedVecToVec<T> for Option<BoundedVec<T, L, U>> {
+impl<T, const L: usize, const U: usize> OptBoundedVecToVec<T>
+    for Option<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>
+{
     fn to_vec(self) -> Vec<T> {
         self.map(|bv| bv.into()).unwrap_or_default()
     }
@@ -443,7 +588,8 @@ mod arbitrary {
     use proptest::prelude::*;
     use proptest::strategy::BoxedStrategy;
 
-    impl<T: Arbitrary, const L: usize, const U: usize> Arbitrary for BoundedVec<T, L, U>
+    impl<T: Arbitrary, const L: usize, const U: usize> Arbitrary
+        for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
     where
         T::Strategy: 'static,
     {
@@ -452,7 +598,7 @@ mod arbitrary {
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             vec(any::<T>(), L..=U)
-                .prop_map(|items| BoundedVec::from_vec(items).unwrap())
+                .prop_map(|items| Self::from_vec(items).unwrap())
                 .boxed()
         }
     }
@@ -494,7 +640,10 @@ mod serde_impl {
                     U
                 )));
             };
-            Ok(BoundedVec { inner })
+            Ok(BoundedVec {
+                inner,
+                _marker: core::marker::PhantomData,
+            })
         }
     }
 
@@ -546,7 +695,7 @@ mod tests {
 
     #[test]
     fn is_empty() {
-        let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
+        let data: EmptyBoundedVec<_, 8> = vec![1u8, 2].try_into().unwrap();
         assert!(!data.is_empty());
     }
 
