@@ -13,7 +13,8 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
-#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
+// TODO: use `rustc_version` and detect nightly
+// #![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 extern crate alloc;
 

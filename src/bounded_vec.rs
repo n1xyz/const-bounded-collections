@@ -15,7 +15,7 @@ pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty
 }
 
 /// Error returned when attempting to create a BoundedVec with items count outside specified bounds
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct OutOfBoundsError {
     #[cfg(feature = "backtrace")]
     backtrace: backtrace::Backtrace,
@@ -80,9 +80,24 @@ pub enum OutOfBoundsErrorKind {
     },
 }
 impl core::error::Error for OutOfBoundsError {
-    #[cfg(feature = "backtrace")]
-    fn provide<'a>(&'a self, request: &mut core::error::Request<'a>) {
-        request.provide_ref::<backtrace::Backtrace>(&self.backtrace);
+    // TODO: use `rustc_version` and detect nightly
+    // #[cfg(feature = "backtrace")]
+    // fn provide<'a>(&'a self, request: &mut core::error::Request<'a>) {
+    //     request.provide_ref::<backtrace::Backtrace>(&self.backtrace);
+    // }
+}
+
+impl core::fmt::Debug for OutOfBoundsError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "OutOfBoundsError {{ kind: {:?} }}", self.kind)?;
+        if f.alternate() {
+            #[cfg(feature = "backtrace")]
+            {
+                writeln!(f)?;
+                writeln!(f, "backtrace:\n{:#?}", self.backtrace)?;
+            }
+        }
+        Ok(())
     }
 }
 
