@@ -1,6 +1,6 @@
 //! Non-empty Vec wrapper with lower and upper bounds on items quantity
 
-#![no_std]
+#![cfg_attr(not(feature = "backtrace"), no_std)]
 // Coding conventions
 #![forbid(unsafe_code)]
 #![deny(non_upper_case_globals)]
@@ -13,6 +13,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
+#![cfg_attr(feature = "backtrace", feature(error_generic_member_access))]
 
 extern crate alloc;
 

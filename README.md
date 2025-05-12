@@ -27,6 +27,7 @@ assert_eq!(data, [2u8,4].into());
 - optional(non-default) `arbitrary` feature that adds `proptest::Arbitrary` implementation to `BoundedVec`.
 - optional(non-default) `borsh` feature that adds `borsh` binary encoding, decoding and schema
 - optional(nin-default) `arbitrary` for `proptest` support
+- optional(nin-default) `backtrace` for `backtrace-rs` on nightly support
 
 
 ## Changelog

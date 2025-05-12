@@ -2,7 +2,6 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use core::slice::{Iter, IterMut};
-use thiserror::Error;
 
 /// Non-empty Vec bounded with minimal (L - lower bound) and maximal (U - upper bound) items quantity.
 ///
@@ -15,25 +14,95 @@ pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty
     _marker: core::marker::PhantomData<W>,
 }
 
+/// Error returned when attempting to create a BoundedVec with items count outside specified bounds
+#[derive(Debug, Clone)]
+pub struct OutOfBoundsError {
+    #[cfg(feature = "backtrace")]
+    backtrace: backtrace::Backtrace,
+    /// Error kind
+    pub kind: OutOfBoundsErrorKind,
+}
+
+impl PartialEq for OutOfBoundsError {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
+impl Eq for OutOfBoundsError {}
+
+impl OutOfBoundsError {
+    /// Creates a new error for when the items count is less than the lower bound
+    ///
+    /// # Parameters
+    ///
+    /// * `lower_bound` - Minimum required number of items
+    /// * `got` - Actual number of items provided
+    pub fn lower_bound(lower_bound: usize, got: usize) -> Self {
+        Self {
+            #[cfg(feature = "backtrace")]
+            backtrace: backtrace::Backtrace::new(),
+            kind: OutOfBoundsErrorKind::LowerBound { lower_bound, got },
+        }
+    }
+
+    /// Creates a new error for when the items count is more than the upper bound
+    ///
+    /// # Parameters
+    ///
+    /// * `upper_bound` - Maximum allowed number of items
+    /// * `got` - Actual number of items provided
+    pub fn upper_bound(upper_bound: usize, got: usize) -> Self {
+        Self {
+            #[cfg(feature = "backtrace")]
+            backtrace: backtrace::Backtrace::new(),
+            kind: OutOfBoundsErrorKind::UpperBound { upper_bound, got },
+        }
+    }
+}
+
 /// BoundedVec errors
-#[derive(Error, PartialEq, Eq, Debug, Clone)]
-pub enum BoundedVecOutOfBounds {
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum OutOfBoundsErrorKind {
     /// Items quantity is less than L (lower bound)
-    #[error("Lower bound violation: got {got} (expected >= {lower_bound})")]
-    LowerBoundError {
+    LowerBound {
         /// L (lower bound)
         lower_bound: usize,
         /// provided value
         got: usize,
     },
     /// Items quantity is more than U (upper bound)
-    #[error("Upper bound violation: got {got} (expected <= {upper_bound})")]
-    UpperBoundError {
+    UpperBound {
         /// U (upper bound)
         upper_bound: usize,
         /// provided value
         got: usize,
     },
+}
+impl core::error::Error for OutOfBoundsError {
+    #[cfg(feature = "backtrace")]
+    fn provide<'a>(&'a self, request: &mut core::error::Request<'a>) {
+        request.provide_ref::<backtrace::Backtrace>(&self.backtrace);
+    }
+}
+
+impl core::fmt::Display for OutOfBoundsError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.kind {
+            OutOfBoundsErrorKind::LowerBound { lower_bound, got } => {
+                write!(
+                    f,
+                    "Lower bound violation: got {got} (expected >= {lower_bound})"
+                )
+            }
+            OutOfBoundsErrorKind::UpperBound { upper_bound, got } => {
+                write!(
+                    f,
+                    "Upper bound violation: got {got} (expected <= {upper_bound})"
+                )
+            }
+        }
+    }
 }
 
 /// Module for type witnesses used to prove vector bounds at compile time
@@ -98,7 +167,7 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///
     /// # Errors
     ///
-    /// * `UpperBoundError` - if `items`` len is more than U (upper bound)
+    /// * `UpperBound` - if `items`` len is more than U (upper bound)
     ///
     /// # Example
     /// ```
@@ -107,14 +176,11 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     /// let data: BoundedVec<_, 0, 8, witnesses::Empty<8>> =
     ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
-    pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
+    pub fn from_vec(items: Vec<T>) -> Result<Self, OutOfBoundsError> {
         let _ = witnesses::empty::<U>();
         let len = items.len();
         if len > U {
-            Err(BoundedVecOutOfBounds::UpperBoundError {
-                upper_bound: U,
-                got: len,
-            })
+            Err(OutOfBoundsError::upper_bound(U, len))
         } else {
             Ok(BoundedVec {
                 inner: items,
@@ -247,8 +313,8 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///
     /// # Errors
     ///
-    /// * `LowerBoundError` - if `items`` len is less than L (lower bound)
-    /// * `UpperBoundError` - if `items`` len is more than U (upper bound)
+    /// * `LowerBound` - if `items`` len is less than L (lower bound)
+    /// * `UpperBound` - if `items`` len is more than U (upper bound)
     ///
     /// # Example
     /// ```
@@ -257,19 +323,13 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// let data: BoundedVec<_, 2, 8, witnesses::NonEmpty<2, 8>> =
     ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
-    pub fn from_vec(items: Vec<T>) -> Result<Self, BoundedVecOutOfBounds> {
+    pub fn from_vec(items: Vec<T>) -> Result<Self, OutOfBoundsError> {
         let _ = witnesses::non_empty::<L, U>();
         let len = items.len();
         if len < L {
-            Err(BoundedVecOutOfBounds::LowerBoundError {
-                lower_bound: L,
-                got: len,
-            })
+            Err(OutOfBoundsError::lower_bound(L, len))
         } else if len > U {
-            Err(BoundedVecOutOfBounds::UpperBoundError {
-                upper_bound: U,
-                got: len,
-            })
+            Err(OutOfBoundsError::upper_bound(U, len))
         } else {
             Ok(BoundedVec {
                 inner: items,
@@ -476,7 +536,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// ```
     pub fn opt_empty_vec(
         v: Vec<T>,
-    ) -> Result<Option<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>, BoundedVecOutOfBounds> {
+    ) -> Result<Option<BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>>, OutOfBoundsError> {
         if v.is_empty() {
             Ok(None)
         } else {
@@ -498,7 +558,7 @@ pub type NonEmptyBoundedVec<T, const L: usize, const U: usize> =
 impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
     for BoundedVec<T, L, U, witnesses::NonEmpty<L, U>>
 {
-    type Error = BoundedVecOutOfBounds;
+    type Error = OutOfBoundsError;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
         Self::from_vec(value)
@@ -506,7 +566,7 @@ impl<T, const L: usize, const U: usize> TryFrom<Vec<T>>
 }
 
 impl<T, const U: usize> TryFrom<Vec<T>> for BoundedVec<T, 0, U, witnesses::Empty<U>> {
-    type Error = BoundedVecOutOfBounds;
+    type Error = OutOfBoundsError;
 
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
         Self::from_vec(value)
@@ -899,9 +959,8 @@ mod serde_impl {
 #[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
-    use core::convert::TryInto;
-
     use super::*;
+    use core::convert::TryInto;
 
     #[test]
     fn from_vec() {

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] - ReleaseDate
 - prevent out of bound construction and define empty vs nonempty at compile time
 - optional `borsh` support
+- removed `thiserror` and added `backtrace` support
  
 ## [0.7.1] - 2022-08-01
 ### Added
