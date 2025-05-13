@@ -1,5 +1,5 @@
 [package]
-name = "bounded-vec"
+name = "const-bounded-collections"
 version = "0.7.1"
 license = "CC0-1.0"
 authors = ["Denys Zadorozhnyi <denys@zadorozhnyi.com>"]

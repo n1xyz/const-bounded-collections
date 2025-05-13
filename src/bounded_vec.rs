@@ -102,8 +102,8 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::witnesses;
+    /// use const_bounded_collections::BoundedVec;
+    /// use const_bounded_collections::witnesses;
     /// let data: BoundedVec<_, 0, 8, witnesses::Empty<8>> =
     ///     BoundedVec::<_, 0, 8, witnesses::Empty<8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
@@ -127,8 +127,8 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::witnesses;
+    /// use const_bounded_collections::BoundedVec;
+    /// use const_bounded_collections::witnesses;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
@@ -142,8 +142,8 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::witnesses;
+    /// use const_bounded_collections::BoundedVec;
+    /// use const_bounded_collections::witnesses;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
@@ -157,8 +157,8 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::witnesses;
+    /// use const_bounded_collections::BoundedVec;
+    /// use const_bounded_collections::witnesses;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 0, 8, witnesses::Empty<8>> = vec![1u8, 2].try_into().unwrap();
@@ -175,7 +175,7 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
@@ -189,7 +189,7 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
@@ -203,7 +203,7 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
@@ -218,7 +218,7 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     /// # Example
     ///
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
     /// let elem = *data.get(1).unwrap();
     /// assert_eq!(elem, 2);
@@ -252,8 +252,8 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::witnesses;
+    /// use const_bounded_collections::BoundedVec;
+    /// use const_bounded_collections::witnesses;
     /// let data: BoundedVec<_, 2, 8, witnesses::NonEmpty<2, 8>> =
     ///     BoundedVec::<_, 2, 8, witnesses::NonEmpty<2, 8>>::from_vec(vec![1u8, 2]).unwrap();
     /// ```
@@ -282,7 +282,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<u8, 2, 4> = vec![1u8,2].try_into().unwrap();
@@ -296,7 +296,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
@@ -311,7 +311,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     ///
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// use std::convert::TryInto;
     ///
     /// let data: BoundedVec<_, 2, 8> = vec![1u8, 2].try_into().unwrap();
@@ -330,7 +330,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// # Example
     ///
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
     /// let data = data.mapped(|x|x*2);
     /// assert_eq!(data, [2u8,4].into());
@@ -353,7 +353,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// # Example
     ///
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
     /// let data = data.mapped_ref(|x|x*2);
     /// assert_eq!(data, [2u8,4].into());
@@ -388,7 +388,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// # Example
     ///
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
     /// let data: Result<BoundedVec<u8, 2, 8>, _> = data.try_mapped(|x| Err("failed"));
     /// assert_eq!(data, Err("failed"));
@@ -423,7 +423,7 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// # Example
     ///
     /// ```
-    /// use bounded_vec::BoundedVec;
+    /// use const_bounded_collections::BoundedVec;
     /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
     /// let data: Result<BoundedVec<u8, 2, 8>, _> = data.try_mapped_ref(|x| Err("failed"));
     /// assert_eq!(data, Err("failed"));
@@ -464,8 +464,8 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
     /// Return a Some(BoundedVec) or None if `v` is empty
     /// # Example
     /// ```
-    /// use bounded_vec::BoundedVec;
-    /// use bounded_vec::OptBoundedVecToVec;
+    /// use const_bounded_collections::BoundedVec;
+    /// use const_bounded_collections::OptBoundedVecToVec;
     ///
     /// let opt_bv_none = BoundedVec::<u8, 2, 8>::opt_empty_vec(vec![]).unwrap();
     /// assert!(opt_bv_none.is_none());
@@ -1039,7 +1039,7 @@ mod arb_tests {
     proptest! {
 
         #[test]
-        fn bounded_vec_length_bounded(v: BoundedVec<u8, 1, 2>) {
+        fn const_bounded_collections_length_bounded(v: BoundedVec<u8, 1, 2>) {
             prop_assert!(1 <= v.len() && v.len() <= 2);
         }
     }
