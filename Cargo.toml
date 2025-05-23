@@ -22,6 +22,7 @@ serde = ["dep:serde"]
 schema = ["serde", "dep:schemars"]
 arbitrary = ["proptest"]
 borsh = ["dep:borsh"]
+nightly = []
 
 [dev-dependencies]
 proptest = { version = "1.0.0" }

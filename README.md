@@ -26,7 +26,8 @@ assert_eq!(data, [2u8,4].into());
 - optional(non-default) `schema` feature that adds JSON schema support via `schemars` (requires `serde`).
 - optional(non-default) `arbitrary` feature that adds `proptest::Arbitrary` implementation to `BoundedVec`.
 - optional(non-default) `borsh` feature that adds `borsh` binary encoding, decoding and schema
-- optional(nin-default) `arbitrary` for `proptest` support
+- optional(non-default) `arbitrary` for `proptest` support
+- optional(non-default) `nightly` for allocator support
 
 
 ## Changelog

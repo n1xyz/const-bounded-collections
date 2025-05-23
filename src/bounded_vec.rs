@@ -10,7 +10,16 @@ use thiserror::Error;
 ///
 /// * `W` - witness type to prove vector ranges and shape it interface accordingly
 #[derive(PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
-pub struct BoundedVec<T, const L: usize, const U: usize, W = witnesses::NonEmpty<L, U>> {
+pub struct BoundedVec<
+    T,
+    const L: usize,
+    const U: usize,
+    W = witnesses::NonEmpty<L, U>,
+    #[cfg(feature = "nightly")] A: alloc::alloc::Allocator = alloc::alloc::Global,
+> {
+    #[cfg(feature = "nightly")]
+    inner: Vec<T, A>,
+    #[cfg(not(feature = "nightly"))]
     inner: Vec<T>,
     _marker: core::marker::PhantomData<W>,
 }
@@ -183,6 +192,45 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     /// ```
     pub fn as_vec(&self) -> &Vec<T> {
         &self.inner
+    }
+
+    /// Removes the subslice indicated by the given range from the vector,
+    /// returning a double-ended iterator over the removed subslice.
+    ///
+    /// If the iterator is dropped before being fully consumed,
+    /// it drops the remaining removed elements.
+    ///
+    /// The returned iterator keeps a mutable borrow on the vector to optimize
+    /// its implementation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the vector.
+    ///
+    /// # Leaking
+    ///
+    /// If the returned iterator goes out of scope without being dropped (due to
+    /// [`mem::forget`], for example), the vector may have lost and leaked
+    /// elements arbitrarily, including elements outside the range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut v = vec![1, 2, 3];
+    /// let u: Vec<_> = v.drain(1..).collect();
+    /// assert_eq!(v, &[1]);
+    /// assert_eq!(u, &[2, 3]);
+    ///
+    /// // A full range clears the vector, like `clear()` does
+    /// v.drain(..);
+    /// assert_eq!(v, &[]);
+    /// ```
+    pub fn drain<R>(&mut self, range: R) -> alloc::vec::Drain<'_, T>
+    where
+        R: core::ops::RangeBounds<usize>,
+    {
+        self.inner.drain(range)
     }
 
     /// Returns an underlying `Vec``
