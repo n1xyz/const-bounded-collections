@@ -22,6 +22,7 @@ assert_eq!(data, [2u8,4].into());
 ```
 
 ## Crate features
+- no `default = []` features
 - optional(non-default) [serde](https://serde.rs/) feature that adds serialization to `BoundedVec`.
 - optional(non-default) `schema` feature that adds JSON schema support via [schemars](https://graham.cool/schemars) (requires `serde`).
 - optional(non-default) `arbitrary` feature that adds `proptest::Arbitrary` implementation to `BoundedVec`.
