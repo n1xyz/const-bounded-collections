@@ -26,4 +26,4 @@ nightly = []
 
 [dev-dependencies]
 proptest = { version = "1.7" }
-serde_json = { version = "1.0", default-features = false }
+serde_json = { version = "1.0", default-features = false, features = ["std"]}

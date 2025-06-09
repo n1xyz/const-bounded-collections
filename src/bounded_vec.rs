@@ -193,6 +193,22 @@ impl<T, const U: usize> BoundedVec<T, 0, U, witnesses::Empty<U>> {
 
 /// Methods which works for all witnesses
 impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
+    /// # Safety
+    /// ## Panics
+    ///
+    /// Panics if will be greater than `U`.
+    pub fn push(&mut self, item: T) {
+        let len = self.inner.len();
+        // NOTE: need to thing if split unbounded `usize::MAX`(panic) and bounded(return error)
+        if len == U {
+            panic!(
+                "Cannot push item to BoundedVec: length {} is already at upper bound {}",
+                len, U
+            );
+        }
+        self.inner.push(item);
+    }
+
     /// Returns a reference to underlying `Vec``
     ///
     /// # Example
