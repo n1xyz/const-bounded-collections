@@ -12,9 +12,9 @@ serde = { version = "1.0.123", default-features = false, features = [
     "alloc",
     "derive",
 ], optional = true }
-schemars = { version = "0.9", default-features = false, optional = true }
+schemars = { version = "1", default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
-proptest = { version = "1.0.0", optional = true }
+proptest = { version = "1.7", optional = true }
 borsh = { version = "1.5.7", default-features = false, features = ["unstable__schema"], optional = true}
 
 [features]
