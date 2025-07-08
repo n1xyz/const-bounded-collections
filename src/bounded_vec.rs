@@ -48,7 +48,7 @@ pub enum BoundedVecOutOfBounds {
 /// Module for type witnesses used to prove vector bounds at compile time
 pub mod witnesses {
     // NOTE:
-    // we can have proves if needed for some cases like 8/16/32/64 upper bound and operating range,
+    // we can have prove if needed for some cases like 8/16/32/64 upper bound and operating range,
     // and make memory layout more efficient:
     // - decide stackalloc or smallvec or std::vec, depending on range * size_of at compile time
     // - make some values of vec to be not usize, but other numbers
@@ -60,6 +60,14 @@ pub mod witnesses {
     /// Possibly empty vector with upper bound.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
     pub struct Empty<const U: usize>(());
+
+    /// Fixed capacity vector. Cannot be resized.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+    pub struct Fixed<const C: usize>(());
+
+    /// Fixed small capacity vector. Cannot be resized.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+    pub struct FixedSmall<const C: u8>(());
 
     /// Type a compile-time proof of valid bounds
     pub const fn non_empty<const L: usize, const U: usize>() -> NonEmpty<L, U> {
@@ -77,7 +85,7 @@ pub mod witnesses {
     }
 
     const fn serde<const U: usize>() {
-        #[cfg(feature = "schema")]
+        #[cfg(feature = "schemars")]
         if U as u128 > u32::MAX as u128 {
             // there is not const safe way to cast usize to u32, nor to other bigger number
             panic!(
@@ -564,12 +572,12 @@ impl<T, const L: usize, const U: usize> BoundedVec<T, L, U, witnesses::NonEmpty<
 
 /// A non-empty Vec with no effective upper-bound on its length.
 /// Lenght is bounded to `u32::MAX``
-#[cfg(any(feature = "schema", feature = "borsh"))]
+#[cfg(any(feature = "schemars", feature = "borsh"))]
 pub type NonEmptyVec<T> =
     BoundedVec<T, 1, { u32::MAX as usize }, witnesses::NonEmpty<1, { u32::MAX as usize }>>;
 
 /// A non-empty Vec with no effective upper-bound on its length
-#[cfg(not(any(feature = "schema", feature = "borsh")))]
+#[cfg(not(any(feature = "schemars", feature = "borsh")))]
 pub type NonEmptyVec<T> = BoundedVec<T, 1, { usize::MAX }, witnesses::NonEmpty<1, { usize::MAX }>>;
 
 /// Possibly empty Vec with upper-bound on its length
@@ -756,19 +764,19 @@ mod borsh_impl {
                 usize::try_from(len).map_err(|_| {
                     borsh::io::Error::new(
                         borsh::io::ErrorKind::Other,
-                        alloc::format!("Length overflow: got {}", len),
+                        alloc::format!("Length overflow: got {len}"),
                     )
                 })?
             };
             if len < L {
                 return Err(borsh::io::Error::new(
                     borsh::io::ErrorKind::Other,
-                    alloc::format!("Lower bound violation: got {} (expected >= {})", len, L),
+                    alloc::format!("Lower bound violation: got {len} (expected >= {L})"),
                 ));
             } else if len > U {
                 return Err(borsh::io::Error::new(
                     borsh::io::ErrorKind::Other,
-                    alloc::format!("Upper bound violation: got {} (expected <= {})", len, U),
+                    alloc::format!("Upper bound violation: got {len} (expected <= {U})"),
                 ));
             }
             // adapted from internals for borsh-rs
@@ -929,7 +937,7 @@ mod serde_impl {
         }
     }
 
-    #[cfg(feature = "schema")]
+    #[cfg(feature = "schemars")]
     mod schema {
         use super::*;
         use alloc::borrow::Cow;

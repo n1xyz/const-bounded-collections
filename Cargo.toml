@@ -1,6 +1,6 @@
 [package]
 name = "const-bounded-collections"
-version = "0.8.0"
+version = "0.8.1"
 license = "CC0-1.0"
 authors = ["Denys Zadorozhnyi <denys@zadorozhnyi.com>"]
 edition = "2024"
@@ -19,7 +19,7 @@ borsh = { version = "1.5.7", default-features = false, features = ["unstable__sc
 
 [features]
 serde = ["dep:serde"]
-schema = ["serde", "dep:schemars"]
+schemars = ["serde", "dep:schemars"]
 arbitrary = ["proptest"]
 borsh = ["dep:borsh"]
 nightly = []

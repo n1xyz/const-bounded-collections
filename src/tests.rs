@@ -182,7 +182,7 @@ mod serde_tests {
     }
 }
 
-#[cfg(feature = "schema")]
+#[cfg(feature = "schemars")]
 mod schema_tests {
     use super::*;
     use schemars::schema_for;

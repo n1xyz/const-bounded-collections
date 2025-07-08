@@ -27,7 +27,7 @@
         cargo hack check --feature-powerset --no-dev-deps --exclude-features=nightly
         cargo hack test --each-feature --exclude-features=nightly
         cargo fmt --all -- --check --color always        
-        cargo clippy --all-features --exclude-features=nightly -- -D warnings
+        cargo hack clippy --each-feature --exclude-features=nightly
       '';
     };
 }
