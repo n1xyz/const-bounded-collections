@@ -312,13 +312,27 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
         self.inner.get(index)
     }
 
+    /// Returns a mutable reference for an element at index or `None` if out of bounds
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use const_bounded_collections::BoundedVec;
+    /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
+    /// let elem = *data.get_mut(1).unwrap();
+    /// assert_eq!(elem, 2);
+    /// ```
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.inner.get_mut(index)
+    }
+
     /// Returns an iterator
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.inner.iter()
     }
 
     /// Returns an iterator that allows to modify each value
-    pub fn iter_mut(&mut self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         self.inner.iter_mut()
     }
 }
