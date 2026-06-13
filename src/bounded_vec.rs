@@ -845,17 +845,7 @@ mod serde_impl {
             D: serde::Deserializer<'de>,
         {
             let inner = Vec::<T>::deserialize(deserializer)?;
-            if inner.len() > U {
-                return Err(serde::de::Error::custom(alloc::format!(
-                    "Upper bound violation: got {} (expected <= {})",
-                    inner.len(),
-                    U
-                )));
-            };
-            Ok(Self {
-                inner,
-                witness: witnesses::empty(),
-            })
+            Self::from_vec(inner).map_err(serde::de::Error::custom)
         }
     }
 
@@ -867,23 +857,7 @@ mod serde_impl {
             D: serde::Deserializer<'de>,
         {
             let inner = Vec::<T>::deserialize(deserializer)?;
-            if inner.len() < L {
-                return Err(serde::de::Error::custom(alloc::format!(
-                    "Lower bound violation: got {} (expected >= {})",
-                    inner.len(),
-                    L
-                )));
-            } else if inner.len() > U {
-                return Err(serde::de::Error::custom(alloc::format!(
-                    "Upper bound violation: got {} (expected <= {})",
-                    inner.len(),
-                    U
-                )));
-            };
-            Ok(Self {
-                inner,
-                witness: witnesses::non_empty(),
-            })
+            Self::from_vec(inner).map_err(serde::de::Error::custom)
         }
     }
 
