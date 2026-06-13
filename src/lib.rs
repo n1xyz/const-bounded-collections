@@ -18,4 +18,9 @@ extern crate alloc;
 
 mod bounded_vec;
 
+/// Type witnesses used to prove vector bounds at compile time.
+pub mod witnesses {
+    pub use kitness::usize::{Empty, Fixed, NonEmpty, OneOrMore, empty, fixed, non_empty};
+}
+
 pub use crate::bounded_vec::*;

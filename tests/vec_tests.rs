@@ -1,6 +1,6 @@
 use core::convert::TryInto;
 
-use super::*;
+use const_bounded_collections::*;
 
 #[test]
 fn from_vec() {
@@ -9,7 +9,6 @@ fn from_vec() {
     assert!(BoundedVec::<u8, 3, 8>::from_vec(vec![1, 2]).is_err());
     assert!(BoundedVec::<u8, 1, 2>::from_vec(vec![1, 2, 3]).is_err());
 }
-
 #[test]
 fn is_empty() {
     let data: EmptyBoundedVec<_, 8> = vec![1u8, 2].try_into().unwrap();
@@ -127,9 +126,10 @@ fn into_iter() {
 
 #[cfg(feature = "borsh")]
 mod borsh_tests {
-    use borsh::schema::BorshSchemaContainer;
     use super::*;
-    
+    use borsh::schema::BorshSchemaContainer;
+    use borsh::{BorshDeserialize, BorshSerialize};
+
     #[test]
     #[allow(clippy::expect_used)]
     fn borsh_encdec() {
@@ -163,8 +163,8 @@ mod borsh_tests {
 #[cfg(feature = "serde")]
 mod serde_tests {
     use super::*;
-    use alloc::vec;
-    
+    use std::vec;
+
     #[test]
     fn deserialize_nonempty() {
         assert_eq!(
@@ -186,7 +186,7 @@ mod serde_tests {
 mod schema_tests {
     use super::*;
     use schemars::schema_for;
-    
+
     #[test]
     fn json_schema() {
         let root_schema = schema_for!(BoundedVec<u8, 2, 8>);
@@ -201,7 +201,6 @@ mod schema_tests {
 #[cfg(feature = "arbitrary")]
 mod arb_tests {
     use super::*;
-    use alloc::format;
     use proptest::prelude::*;
 
     proptest! {

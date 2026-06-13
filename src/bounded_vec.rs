@@ -1,3 +1,4 @@
+use crate::witnesses;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
@@ -43,71 +44,6 @@ pub enum BoundedVecOutOfBounds {
         /// provided value
         got: usize,
     },
-}
-
-/// Module for type witnesses used to prove vector bounds at compile time
-pub mod witnesses {
-    // NOTE:
-    // we can have prove if needed for some cases like 8/16/32/64 upper bound and operating range,
-    // and make memory layout more efficient:
-    // - decide stackalloc or smallvec or std::vec, depending on range * size_of at compile time
-    // - make some values of vec to be not usize, but other numbers
-
-    /// Compile-time proof of valid bounds. Must be consturcted with same bounds to instantiate `BoundedVec`.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-    pub struct NonEmpty<const L: usize, const U: usize>(());
-
-    /// Possibly empty vector with upper bound.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-    pub struct Empty<const U: usize>(());
-
-    /// Fixed capacity vector. Cannot be resized.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-    pub struct Fixed<const C: usize>(());
-
-    /// Fixed small capacity vector. Cannot be resized.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
-    pub struct FixedSmall<const C: u8>(());
-
-    /// Type a compile-time proof of valid bounds
-    pub const fn non_empty<const L: usize, const U: usize>() -> NonEmpty<L, U> {
-        const {
-            if L == 0 {
-                panic!("L must be greater than 0")
-            }
-            if L > U {
-                panic!("L must be less than or equal to U")
-            }
-
-            serde::<U>();
-            NonEmpty::<L, U>(())
-        }
-    }
-
-    const fn serde<const U: usize>() {
-        #[cfg(feature = "schemars")]
-        if U as u128 > u32::MAX as u128 {
-            // there is not const safe way to cast usize to u32, nor to other bigger number
-            panic!(
-                "`schemars` encodes `maxLength` as u32, so `U` must be less than or equal to `u32::MAX`"
-            )
-        }
-
-        #[cfg(feature = "borsh")]
-        if U as u128 > u32::MAX as u128 {
-            panic!(
-                "`borsh` specifies size of dynamic containers as u32, so `U` must be less than or equal to `u32::MAX`"
-            )
-        }
-    }
-
-    /// Type a compile-time proof for possibly empty vector with upper bound
-    pub const fn empty<const U: usize>() -> Empty<U> {
-        const {
-            serde::<U>();
-            Empty::<U>(())
-        }
-    }
 }
 
 impl<T, const U: usize> Default for BoundedVec<T, 0, U, witnesses::Empty<U>> {
@@ -318,7 +254,7 @@ impl<T, const L: usize, const U: usize, W> BoundedVec<T, L, U, W> {
     ///
     /// ```
     /// use const_bounded_collections::BoundedVec;
-    /// let data: BoundedVec<u8, 2, 8> = [1u8,2].into();
+    /// let mut data: BoundedVec<u8, 2, 8> = [1u8,2].into();
     /// let elem = *data.get_mut(1).unwrap();
     /// assert_eq!(elem, 2);
     /// ```

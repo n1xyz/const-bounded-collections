@@ -1,6 +1,6 @@
 [package]
 name = "const-bounded-collections"
-version = "0.8.1"
+version = "0.9.0"
 license = "CC0-1.0"
 authors = ["Denys Zadorozhnyi <denys@zadorozhnyi.com>"]
 edition = "2024"
@@ -12,16 +12,18 @@ serde = { version = "1.0.123", default-features = false, features = [
     "alloc",
     "derive",
 ], optional = true }
-schemars = { version = "1", default-features = false, optional = true }
+schemars = { version = "1.2.0", default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
 proptest = { version = "1.7", optional = true }
 borsh = { version = "1.5.7", default-features = false, features = ["unstable__schema"], optional = true}
+kitness = { git = "https://github.com/dzmitry-lahoda/kitness", default-features = false }
 
 [features]
+all-stable = ["serde", "borsh", "arbitrary"]
 serde = ["dep:serde"]
-schemars = ["serde", "dep:schemars"]
+schemars = ["serde", "dep:schemars", "kitness/json"]
 arbitrary = ["proptest"]
-borsh = ["dep:borsh"]
+borsh = ["dep:borsh", "kitness/borsh"]
 nightly = []
 
 [dev-dependencies]
